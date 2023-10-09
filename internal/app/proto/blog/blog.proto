@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+// cd ..
+//protoc --proto_path=. --go_out=. --go_opt=paths=source_relative rating/*.proto
+
+package rating;
+//option go_package = ".;order_state";
+option go_package = "github.com/Kalinin-Andrey/blog/internal/app/proto/rating";
+
+import "google/protobuf/timestamp.proto";
+
+message Blog {
+  google.protobuf.Timestamp Timestamp = 7; // дата изменения
+  string SellerName = 15;
+  double Rating = 2;
+  double RatioDelivered = 3;
+  double RatioDefected = 4;
+  double BuyerRatingWeight = 12;
+  double AvgBuyerRating = 6;
+  uint64 SellerOldId = 1;
+  uint64 NbDelivered = 10;
+  uint64 NbInDelivery = 11;
+  uint64 NbOrdersMarketplace = 9;
+  uint64 NbBuyerRatings = 5;
+  uint64 NbDefected = 13;
+  uint64 NbOrdersTotal = 14;
+}
