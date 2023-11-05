@@ -10,7 +10,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/wildberries-tech/wblogger"
 
@@ -77,8 +76,6 @@ const (
 	sql_Or    = " OR "
 	sql_Asc   = " ASC"
 	sql_Desc  = " DESC"
-
-	lockQuery = `update lock.worker_name set dt = (now() at time zone 'utc') where worker_name = $1 and dt < (now() at time zone 'utc') - $2::interval`
 )
 
 func NewRepository(cfg Config, dbMetrics DbMetrics, sqlMetrics SqlMetrics, gaugeMetrics GaugeMetrics) (*Repository, error) {
@@ -145,6 +142,7 @@ func NewRepository(cfg Config, dbMetrics DbMetrics, sqlMetrics SqlMetrics, gauge
 
 func (r *Repository) Close() {
 	r.db.Close()
+	r.sqlDB.Close()
 }
 
 func (r *Repository) SqlDB() *sql.DB {
@@ -187,31 +185,6 @@ func (r *Repository) BeginWithOptions(ctx context.Context, opts *pgx.TxOptions) 
 	r.metrics.Inc(metricName, metricsSuccess)
 	r.metrics.WriteTiming(start, metricName, metricsSuccess)
 	return tx, nil
-}
-
-func (r *Repository) Lock(ctx context.Context, workerName string, interval time.Duration) (bool, error) {
-	pgInterval := pgtype.Interval{}
-	if err := pgInterval.Scan(interval); err != nil {
-		return false, errors.Wrap(apperror.ErrInternal, err.Error())
-	}
-
-	start := time.Now().UTC()
-	const metricName = "Lock"
-
-	res, err := r.db.Exec(ctx, lockQuery, workerName, pgInterval)
-	if err != nil {
-		wblogger.Error(ctx, "Lock-Exec", err)
-		r.metrics.Inc(metricName, metricsFail)
-		r.metrics.WriteTiming(start, metricName, metricsFail)
-		return false, errors.Wrap(apperror.ErrInternal, "Lock Exec error: "+err.Error())
-	}
-	r.metrics.Inc(metricName, metricsSuccess)
-	r.metrics.WriteTiming(start, metricName, metricsSuccess)
-
-	if res.RowsAffected() == 0 {
-		return false, nil
-	}
-	return true, nil
 }
 
 func (r *Repository) Exec(ctx context.Context, sql string, arguments ...interface{}) error {

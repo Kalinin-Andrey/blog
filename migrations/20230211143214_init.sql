@@ -4,31 +4,22 @@ SELECT 'up SQL query';
 
 CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
 
-do
-$do$
-    begin
-        if not exists (select * from pg_user where usename = 'api') then
-            create role api with login password 'api';
-        end if;
-    end
-$do$;
-
-create schema rating;
-grant usage on schema rating to "api";
+create schema blog;
 
 -- BEGIN;
 SET lock_timeout = '1min';
 SELECT CASE WHEN setting = '0' THEN 'deactivated' ELSE setting || unit END AS lock_timeout FROM pg_settings WHERE name = 'lock_timeout';
 -- COMMIT;
 
-create table rating.order_creation_event
+create table blog.keyword
 (
-    timestamp              timestamp                            not null,
-    seller_id              bigint                               not null,
-    srid                   text                                 not null
+    id                     bigint                               not null,
+    value                  text                                 not null,
+    primary key (id) include (value)
 );
 
-select public.create_hypertable('rating.order_creation_event', 'timestamp', chunk_time_interval => INTERVAL '1 month');
+
+
 create unique index order_creation_event_seller_id_srid_timestamp_unx ON rating.order_creation_event (seller_id, srid, timestamp);
 
 grant all on rating.order_creation_event to "api";

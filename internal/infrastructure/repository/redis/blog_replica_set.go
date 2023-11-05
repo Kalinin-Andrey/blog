@@ -16,10 +16,10 @@ func NewBlogReplicaSet(replicaSet *ReplicaSet) *BlogReplicaSet {
 	}
 }
 
-func (c *BlogReplicaSet) Master() blog.FastRepository {
-	return NewBlogRepository(c.ReplicaSet.Master())
+func (c *BlogReplicaSet) WriteRepo() blog.WriteFastRepository {
+	return NewBlogRepository(c.ReplicaSet.WriteRepo())
 }
 
-func (c *BlogReplicaSet) Slave() blog.FastRepository {
-	return NewBlogRepository(c.ReplicaSet.Slave())
+func (c *BlogReplicaSet) ReadRepo() blog.ReadFastRepository {
+	return NewBlogRepository(c.ReplicaSet.ReadRepo())
 }

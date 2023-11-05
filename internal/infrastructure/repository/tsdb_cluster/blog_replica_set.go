@@ -17,10 +17,10 @@ func NewBlogReplicaSet(replicaSet *ReplicaSet) *BlogReplicaSet {
 	}
 }
 
-func (c *BlogReplicaSet) Master() blog.TsDBRepository {
-	return tsdb.NewBlogRepository(c.ReplicaSet.Master())
+func (c *BlogReplicaSet) WriteRepo() blog.WriteTsDBRepository {
+	return tsdb.NewBlogRepository(c.ReplicaSet.WriteRepo())
 }
 
-func (c *BlogReplicaSet) Slave() blog.TsDBRepository {
-	return tsdb.NewBlogRepository(c.ReplicaSet.Slave())
+func (c *BlogReplicaSet) ReadRepo() blog.ReadTsDBRepository {
+	return tsdb.NewBlogRepository(c.ReplicaSet.ReadRepo())
 }

@@ -1,5 +1,7 @@
 package redis
 
+import "errors"
+
 type ReplicaSet struct {
 	master *Repository
 	slave  *Repository
@@ -12,19 +14,14 @@ func NewReplicaSet(dbMaster *Repository, dbSlave *Repository) *ReplicaSet {
 	}
 }
 
-func (rs *ReplicaSet) Master() *Repository {
+func (rs *ReplicaSet) WriteRepo() *Repository {
 	return rs.master
 }
 
-func (rs *ReplicaSet) Slave() *Repository {
+func (rs *ReplicaSet) ReadRepo() *Repository {
 	return rs.slave
 }
 
 func (rs *ReplicaSet) Close() error {
-	err1 := rs.master.Close()
-	err2 := rs.slave.Close()
-	if err1 != nil {
-		return err1
-	}
-	return err2
+	return errors.Join(rs.master.Close(), rs.slave.Close())
 }

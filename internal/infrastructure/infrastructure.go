@@ -87,7 +87,7 @@ func (infra *Infrastructure) tsDBInit(ctx context.Context) error {
 func (infra *Infrastructure) tsDBMigrate(ctx context.Context) (err error) {
 	wblogger.Info(ctx, "TsDBMigration start")
 
-	repo := infra.TsDB.Master()
+	repo := infra.TsDB.WriteRepo()
 	migrations.CurrentRepo = repo
 
 	goose.SetBaseFS(migrations.EmbedMigrations)

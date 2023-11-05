@@ -20,7 +20,8 @@ type BlogRepository struct {
 	*Repository
 }
 
-var _ blog.TsDBRepository = (*BlogRepository)(nil)
+var _ blog.WriteTsDBRepository = (*BlogRepository)(nil)
+var _ blog.ReadTsDBRepository = (*BlogRepository)(nil)
 
 func NewBlogRepository(repository *Repository) *BlogRepository {
 	return &BlogRepository{

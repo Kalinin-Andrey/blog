@@ -17,18 +17,18 @@ func NewRatingCluster(cluster *Cluster) *BlogCluster {
 	}
 }
 
-func (c *BlogCluster) GetShardMaster(num byte) blog.TsDBRepository {
+func (c *BlogCluster) GetShardWriteRepo(num byte) blog.WriteTsDBRepository {
 	return tsdb.NewBlogRepository(c.Cluster.GetShardMaster(num))
 }
 
-func (c *BlogCluster) GetShardSlave(num byte) blog.TsDBRepository {
+func (c *BlogCluster) GetShardReadRepo(num byte) blog.ReadTsDBRepository {
 	return tsdb.NewBlogRepository(c.Cluster.GetShardSlave(num))
 }
 
-func (c *BlogCluster) GetShardMasterByID(ID uint) blog.TsDBRepository {
+func (c *BlogCluster) GetShardWriteRepoByID(ID uint) blog.WriteTsDBRepository {
 	return tsdb.NewBlogRepository(c.Cluster.GetShardMasterByUintKey(ID))
 }
 
-func (c *BlogCluster) GetShardSlaveByID(ID uint) blog.TsDBRepository {
+func (c *BlogCluster) GetShardReadRepoByID(ID uint) blog.ReadTsDBRepository {
 	return tsdb.NewBlogRepository(c.Cluster.GetShardSlaveByUintKey(ID))
 }

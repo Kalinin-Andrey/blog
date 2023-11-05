@@ -42,7 +42,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
-	github.com/minipkg/db v0.0.16-0.20230528095453-42f9fb91018e // indirect
+	github.com/minipkg/db v0.0.16-0.20231014105424-ed420ff4d257 // indirect
 	github.com/minipkg/httpclient v0.0.0-20231008131255-f3ea59d3069f // indirect
 	github.com/minipkg/prometheus-utils v0.0.0-20231008154935-0ace95601b00 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect

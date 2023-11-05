@@ -22,7 +22,8 @@ type BlogRepository struct {
 	db redis.IDB
 }
 
-var _ blog.FastRepository = (*BlogRepository)(nil)
+var _ blog.WriteFastRepository = (*BlogRepository)(nil)
+var _ blog.ReadFastRepository = (*BlogRepository)(nil)
 
 func NewBlogRepository(repository *Repository) *BlogRepository {
 	return &BlogRepository{

@@ -16,11 +16,11 @@ func NewReplicaSet(dbMaster *pg.Repository, dbSlave *pg.Repository) *ReplicaSet 
 	}
 }
 
-func (rs *ReplicaSet) Master() *pg.Repository {
+func (rs *ReplicaSet) WriteRepo() *pg.Repository {
 	return rs.master
 }
 
-func (rs *ReplicaSet) Slave() *pg.Repository {
+func (rs *ReplicaSet) ReadRepo() *pg.Repository {
 	return rs.slave
 }
 

@@ -51,19 +51,19 @@ func (c *Cluster) GetShardSlave(n byte) *tsdb.Repository {
 }
 
 func (c *Cluster) GetShardMasterByUintKey(sellerID uint) *tsdb.Repository {
-	return (*c.GetShardByUintKey(sellerID)).Master()
+	return (*c.GetShardByUintKey(sellerID)).WriteRepo()
 }
 
 func (c *Cluster) GetShardSlaveByUintKey(sellerID uint) *tsdb.Repository {
-	return (*c.GetShardByUintKey(sellerID)).Slave()
+	return (*c.GetShardByUintKey(sellerID)).ReadRepo()
 }
 
 func (c *Cluster) GetShardMasterByStrKey(keyVal string) *tsdb.Repository {
-	return (*c.GetShardByStrKey(keyVal)).Master()
+	return (*c.GetShardByStrKey(keyVal)).WriteRepo()
 }
 
 func (c *Cluster) GetShardSlaveByStrKey(keyVal string) *tsdb.Repository {
-	return (*c.GetShardByStrKey(keyVal)).Slave()
+	return (*c.GetShardByStrKey(keyVal)).ReadRepo()
 }
 
 func (c *Cluster) Close() {

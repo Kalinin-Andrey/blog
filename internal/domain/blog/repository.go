@@ -5,37 +5,41 @@ import (
 )
 
 type TsDBCluster interface {
-	GetShardMaster(num byte) TsDBRepository
-	GetShardSlave(num byte) TsDBRepository
-	GetShardMasterByID(ID uint) TsDBRepository
-	GetShardSlaveByID(ID uint) TsDBRepository
+	GetShardWriteRepo(num byte) WriteTsDBRepository
+	GetShardReadRepo(num byte) ReadTsDBRepository
+	GetShardWriteRepoByID(ID uint) WriteTsDBRepository
+	GetShardReadRepoByID(ID uint) ReadTsDBRepository
 }
 
 type TsDBReplicaSet interface {
-	Master() TsDBRepository
-	Slave() TsDBRepository
+	WriteRepo() WriteTsDBRepository
+	ReadRepo() ReadTsDBRepository
 }
 
-type TsDBRepository interface {
+type WriteTsDBRepository interface {
 	Create(ctx context.Context, entity *Blog) error
+}
+
+type ReadTsDBRepository interface {
 	MGet(ctx context.Context, filter *Filter4TsDB) (*[]Blog, error)
 }
 
 type FastCluster interface {
-	GetShardMasterByID(ID uint) FastRepository
-	GetShardSlaveByID(ID uint) FastRepository
-	MCreate(ctx context.Context, entities *[]Blog) error
-	MGet(ctx context.Context, sellerIDs *[]uint) (*[]Blog, error)
+	GetShardWriteRepoByID(ID uint) WriteFastRepository
+	GetShardReadRepoByID(ID uint) ReadFastRepository
 }
 
 type FastReplicaSet interface {
-	Master() FastRepository
-	Slave() FastRepository
+	WriteRepo() WriteFastRepository
+	ReadRepo() ReadFastRepository
 }
 
-type FastRepository interface {
-	Get(ctx context.Context, ID uint) (*Blog, error)
-	MGet(ctx context.Context, IDs *[]uint) (*[]Blog, error)
+type WriteFastRepository interface {
 	Set(ctx context.Context, blog *Blog) error
 	MSet(ctx context.Context, blogList *[]Blog) error
+}
+
+type ReadFastRepository interface {
+	Get(ctx context.Context, ID uint) (*Blog, error)
+	MGet(ctx context.Context, IDs *[]uint) (*[]Blog, error)
 }

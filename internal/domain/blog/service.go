@@ -22,7 +22,7 @@ func (s *Service) MGet(ctx context.Context, sellerIDs *[]uint) (*[]Blog, error) 
 }
 
 func (s *Service) Filter(ctx context.Context, filter *Filter) (count uint, list *[]Blog, err error) {
-	count, err = s.replicaSet.Slave().Count(ctx, filter)
+	count, err = s.replicaSet.ReadRepo().Count(ctx, filter)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -30,7 +30,7 @@ func (s *Service) Filter(ctx context.Context, filter *Filter) (count uint, list 
 		return 0, nil, nil
 	}
 
-	list, err = s.replicaSet.Slave().MGet(ctx, filter)
+	list, err = s.replicaSet.ReadRepo().MGet(ctx, filter)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -57,7 +57,7 @@ func (s *Service) Filter(ctx context.Context, filter *Filter) (count uint, list 
 }
 
 func (s *Service) Create(ctx context.Context, entity *Blog) error {
-	err := s.replicaSet.Master().Create(ctx, entity)
+	err := s.replicaSet.WriteRepo().Create(ctx, entity)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func (s *Service) Create(ctx context.Context, entity *Blog) error {
 }
 
 func (s *Service) MCreate(ctx context.Context, entities *[]Blog) (err error) {
-	if err = s.replicaSet.Master().MCreate(ctx, entities); err != nil {
+	if err = s.replicaSet.WriteRepo().MCreate(ctx, entities); err != nil {
 		return err
 	}
 
