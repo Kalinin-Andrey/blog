@@ -16,7 +16,7 @@ create table blog.keyword
     id                     integer                              not null,
     sysname                text                                 not null,
     value                  text                                 not null,
-    constraint keyword__pkey primary key (id) include (sysname, value)
+    constraint keyword__id__pkey primary key (id) include (sysname, value)
 );
 create unique index keyword__sysname__unx ON blog.keyword (sysname) include (id, value);
 
@@ -25,7 +25,7 @@ create table blog.tag
     id                     integer                              not null,
     sysname                text                                 not null,
     value                  text                                 not null,
-    constraint tag__pkey primary key (id) include (sysname, value)
+    constraint tag__id__pkey primary key (id) include (sysname, value)
 );
 create unique index tag__sysname__unx ON blog.tag (sysname) include (id, value);
 
@@ -37,7 +37,7 @@ create table blog.blog
     tag_ids                integer[]                            null,
     name                   text                                 not null,
     description            text                                 null,
-    constraint blog__pkey primary key (id) include (sysname, keyword_ids, tag_ids, name, description)
+    constraint blog__id__pkey primary key (id) include (sysname, keyword_ids, tag_ids, name, description)
 );
 create unique index blog__sysname__unx ON blog.blog (sysname) include (id, keyword_ids, tag_ids, name, description);
 
@@ -58,7 +58,7 @@ create table blog.post
     deleted_at             timestamp                            null,
     CONSTRAINT post__blog_id__fkey FOREIGN KEY (blog_id) REFERENCES blog.blog(id)
 );
-create unique index post__pkey ON blog.post (id, created_at) include (blog_id, sysname, keyword_ids, tag_ids, is_deleted, title, preview, content, updated_at, deleted_at);
+create unique index post__id__pkey ON blog.post (id, created_at) include (blog_id, sysname, keyword_ids, tag_ids, is_deleted, title, preview, content, updated_at, deleted_at);
 create unique index post__sysname__unx ON blog.post (blog_id, sysname, created_at) include (id, keyword_ids, tag_ids, is_deleted, title, preview, content, updated_at, deleted_at);
 
 create index post__keyword_ids__idx ON blog.post (keyword_ids) include (id, blog_id, sysname, tag_ids, is_deleted, title, preview, created_at, updated_at, deleted_at);
