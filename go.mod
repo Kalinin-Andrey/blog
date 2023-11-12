@@ -17,6 +17,7 @@ require (
 	github.com/elliotchance/redismock/v8 v8.6.2 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/getsentry/sentry-go v0.14.0 // indirect
+	github.com/go-ozzo/ozzo-validation/v4 v4.3.0 // indirect
 	github.com/go-redis/cache/v8 v8.4.0 // indirect
 	github.com/go-redis/redis/v8 v8.8.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
@@ -45,12 +46,14 @@ require (
 	github.com/minipkg/db v0.0.16-0.20231014105424-ed420ff4d257 // indirect
 	github.com/minipkg/httpclient v0.0.0-20231008131255-f3ea59d3069f // indirect
 	github.com/minipkg/prometheus-utils v0.0.0-20231008154935-0ace95601b00 // indirect
+	github.com/minipkg/selection_condition v0.0.5 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/nats-io/nats.go v1.30.2 // indirect
 	github.com/nats-io/nkeys v0.4.5 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.18 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/pressly/goose/v3 v3.15.0 // indirect
 	github.com/prometheus/client_golang v1.14.0 // indirect

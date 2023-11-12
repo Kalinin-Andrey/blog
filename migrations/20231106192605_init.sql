@@ -3,6 +3,7 @@
 SELECT 'up SQL query';
 
 CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
+CREATE EXTENSION IF NOT EXISTS btree_gin CASCADE;
 
 create schema blog;
 
@@ -58,13 +59,13 @@ create table blog.post
     deleted_at             timestamp                            null,
     CONSTRAINT post__blog_id__fkey FOREIGN KEY (blog_id) REFERENCES blog.blog(id)
 );
-create unique index post__id__pkey ON blog.post (id, created_at) include (blog_id, sysname, keyword_ids, tag_ids, is_deleted, title, preview, content, updated_at, deleted_at);
-create unique index post__sysname__unx ON blog.post (blog_id, sysname, created_at) include (id, keyword_ids, tag_ids, is_deleted, title, preview, content, updated_at, deleted_at);
+create unique index post__id__created_at__pkey ON blog.post (id, created_at) include (blog_id, sysname, keyword_ids, tag_ids, is_deleted, title, preview, content, updated_at, deleted_at);
+create unique index post__blog_id__sysname__unx ON blog.post (blog_id, sysname, created_at) include (id, keyword_ids, tag_ids, is_deleted, title, preview, content, updated_at, deleted_at);
 
-create index post__keyword_ids__idx ON blog.post (keyword_ids) include (id, blog_id, sysname, tag_ids, is_deleted, title, preview, created_at, updated_at, deleted_at);
-create index post__tag_ids__idx ON blog.post (tag_ids) include (id, blog_id, sysname, keyword_ids, is_deleted, title, preview, created_at, updated_at, deleted_at);
+create index post__blog_id__keyword_ids__idx ON blog.post (blog_id, keyword_ids) include (id, sysname, tag_ids, is_deleted, title, preview, created_at, updated_at, deleted_at);
+create index post__blog_id__tag_ids__idx ON blog.post (blog_id, tag_ids) include (id, sysname, keyword_ids, is_deleted, title, preview, created_at, updated_at, deleted_at);
 
-create index post__textsearch__gidx ON blog.post using gin (content_tsvector);
+create index post__blog_id__content_tsvector__ginx ON blog.post using gin (blog_id, content_tsvector, created_at);
 
 select public.create_hypertable('blog.post', 'created_at', chunk_time_interval => INTERVAL '10 year');
 -- +goose StatementEnd
