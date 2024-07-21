@@ -1,13 +1,10 @@
 package redis
 
-import (
-	"blog/internal/domain/blog"
-)
-
 type BlogCluster struct {
 	*Cluster
 }
 
+/*
 var _ blog.FastCluster = (*BlogCluster)(nil)
 
 func NewBlogCluster(cluster *Cluster) *BlogCluster {
@@ -31,3 +28,4 @@ func (c *BlogCluster) GetShardWriteRepoByID(ID uint) blog.WriteFastRepository {
 func (c *BlogCluster) GetShardReadRepoByID(ID uint) blog.ReadFastRepository {
 	return NewBlogRepository(c.Cluster.GetShardReadRepoByUintKey(ID))
 }
+*/

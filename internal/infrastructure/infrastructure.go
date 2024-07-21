@@ -1,11 +1,13 @@
 package infrastructure
 
 import (
+	"blog/internal/pkg/appconst"
 	"context"
 	"fmt"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/minipkg/prometheus-utils"
+	"github.com/pressly/goose/v3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -14,8 +16,6 @@ import (
 	"blog/internal/infrastructure/repository/tsdb_cluster"
 	_ "blog/migrations/tsdb"
 	tsdbmigration "blog/migrations/tsdb"
-
-	"blog/internal/pkg/config"
 )
 
 type AppConfig struct {
@@ -62,43 +62,41 @@ func (infra *Infrastructure) loggerInit(ctx context.Context, environment string)
 	var lvl zap.AtomicLevel
 
 	switch environment {
-	case config.Environment_Local:
+	case appconst.Env_Local:
 		lvl = zap.NewAtomicLevelAt(zap.InfoLevel)
-	case config.Environment_Dev:
+	case appconst.Env_Dev:
 		lvl = zap.NewAtomicLevelAt(zap.DebugLevel)
-	case config.Environment_Stage:
+	case appconst.Env_Stage:
 		lvl = zap.NewAtomicLevelAt(zap.WarnLevel)
-	case config.Environment_Prd:
+	case appconst.Env_Prd:
 		//lvl = zap.NewAtomicLevelAt(zap.ErrorLevel)
 		lvl = zap.NewAtomicLevelAt(zap.WarnLevel)
 	default:
 		lvl = zap.NewAtomicLevelAt(zap.InfoLevel)
 	}
 
-	infra.Logger, err = zap.Config{
-		Level:             lvl,
-		Development:       false,
-		DisableCaller:     false,
-		DisableStacktrace: false,
-		Sampling:          nil,
-		OutputPaths:       []string{"stdout"},
-		ErrorOutputPaths:  []string{"stderr"},
-		Encoding:          "json",
-		EncoderConfig: zapcore.EncoderConfig{
-			EncodeTime: zapcore.RFC3339TimeEncoder,
-		},
-		InitialFields: nil,
-	}.Build()
+	conf := zap.NewProductionConfig()
+	conf.Level = lvl
+	conf.OutputPaths = []string{"stdout"}
+	conf.EncoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
+	infra.Logger, err = conf.Build(zap.AddCallerSkip(1)) // записываем не logger в каждую запись, а реального вызывающего
+
 	return err
 }
 
 func (infra *Infrastructure) tsDBInit(ctx context.Context) error {
 	conf := infra.config.TsDB.getConfig()
+	counterMetrics := prometheus_utils.NewCounter(infra.appConfig.NameSpace, infra.appConfig.Name, infra.appConfig.Service, "nb", "tsdb", "value_name", "success")
+
 	nodeLabel := "tsdb_master"
 	sqlMetrics := prometheus_utils.NewSqlMetrics(infra.appConfig.NameSpace, infra.appConfig.Name, infra.appConfig.Service, nodeLabel, conf[0].DbName)
 	dbMetrics := prometheus_utils.NewDbMetrics(infra.appConfig.NameSpace, infra.appConfig.Name, infra.appConfig.Service, nodeLabel, conf[0].DbName)
 	gaugeMetrics := prometheus_utils.NewDBGauge(infra.appConfig.NameSpace, infra.appConfig.Name, infra.appConfig.Service, nodeLabel, conf[0].DbName)
-	master, err := tsdb.NewRepository(conf[0], dbMetrics, sqlMetrics, gaugeMetrics)
+	master, err := tsdb.NewRepository(conf[0], dbMetrics, &tsdb.RepositoryMetrics{
+		SqlMetrics:     sqlMetrics,
+		GaugeMetrics:   gaugeMetrics,
+		CounterMetrics: counterMetrics,
+	})
 	if err != nil {
 		return err
 	}
@@ -107,7 +105,11 @@ func (infra *Infrastructure) tsDBInit(ctx context.Context) error {
 	sqlMetrics = prometheus_utils.NewSqlMetrics(infra.appConfig.NameSpace, infra.appConfig.Name, infra.appConfig.Service, nodeLabel, conf[1].DbName)
 	dbMetrics = prometheus_utils.NewDbMetrics(infra.appConfig.NameSpace, infra.appConfig.Name, infra.appConfig.Service, nodeLabel, conf[1].DbName)
 	gaugeMetrics = prometheus_utils.NewDBGauge(infra.appConfig.NameSpace, infra.appConfig.Name, infra.appConfig.Service, nodeLabel, conf[1].DbName)
-	slave, err := tsdb.NewRepository(conf[1], dbMetrics, sqlMetrics, gaugeMetrics)
+	slave, err := tsdb.NewRepository(conf[1], dbMetrics, &tsdb.RepositoryMetrics{
+		SqlMetrics:     sqlMetrics,
+		GaugeMetrics:   gaugeMetrics,
+		CounterMetrics: counterMetrics,
+	})
 	if err != nil {
 		return err
 	}

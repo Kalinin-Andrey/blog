@@ -1,14 +1,6 @@
 package redis
 
 import (
-	"context"
-	"fmt"
-	"strconv"
-	"time"
-
-	blog_proto "blog/internal/app/proto/blog"
-	"blog/internal/domain/blog"
-	"blog/internal/pkg/apperror"
 	"github.com/minipkg/db/redis"
 )
 
@@ -23,7 +15,7 @@ type BlogRepository struct {
 
 //var _ blog.WriteFastRepository = (*BlogRepository)(nil)
 //var _ blog.ReadFastRepository = (*BlogRepository)(nil)
-
+/*
 func NewBlogRepository(repository *Repository) *BlogRepository {
 	return &BlogRepository{
 		Repository: repository,
@@ -150,3 +142,4 @@ func (r *BlogRepository) MGet(ctx context.Context, sellerIDs *[]uint) (*[]blog.B
 
 	return &ratings, nil
 }
+*/

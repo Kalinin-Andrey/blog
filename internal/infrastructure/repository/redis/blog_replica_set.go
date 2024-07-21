@@ -1,13 +1,10 @@
 package redis
 
-import (
-	"blog/internal/domain/blog"
-)
-
 type BlogReplicaSet struct {
 	*ReplicaSet
 }
 
+/*
 var _ blog.FastReplicaSet = (*BlogReplicaSet)(nil)
 
 func NewBlogReplicaSet(replicaSet *ReplicaSet) *BlogReplicaSet {
@@ -23,3 +20,4 @@ func (c *BlogReplicaSet) WriteRepo() blog.WriteFastRepository {
 func (c *BlogReplicaSet) ReadRepo() blog.ReadFastRepository {
 	return NewBlogRepository(c.ReplicaSet.ReadRepo())
 }
+*/
