@@ -5,39 +5,43 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
-	"github.com/wildberries-tech/wblogger"
 	_ "go.uber.org/automaxprocs"
 
-	"github.com/Kalinin-Andrey/blog/internal/app"
-	"github.com/Kalinin-Andrey/blog/internal/app/cli"
-	"github.com/Kalinin-Andrey/blog/internal/pkg/config"
+	"blog/internal/app"
+	"blog/internal/app/cli"
+	"blog/internal/pkg/config"
 )
 
 func main() {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 	conf, err := config.Get()
 	if err != nil {
-		log.Fatalln("Can not load the config")
+		log.Fatalf("Load conf error: %w", err)
 	}
 	cliApp := cli.New(ctx, conf.App.Name, app.New(ctx, conf), conf.API, conf.Cli)
 
-	done := make(chan os.Signal, 1)
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		if err = cliApp.Run(); err != nil {
-			log.Fatalf("Error while cli application is running: %s", err.Error())
+			log.Fatalf("cliApp.Run() error: %w", err)
 			os.Exit(1)
 		}
 	}()
 
 	defer func() {
 		if err = cliApp.Stop(); err != nil {
-			wblogger.Error(ctx, "API Shutdown error", err)
+			log.Printf("cliApp.Stop() error: %w", err)
 		}
 	}()
 
-	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
-	<-done
-
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	<-stop
+	cancel()
+	wg.Wait()
 }

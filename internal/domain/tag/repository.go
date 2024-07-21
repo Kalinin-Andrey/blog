@@ -15,6 +15,6 @@ type WriteRepository interface {
 
 type ReadRepository interface {
 	Get(ctx context.Context, ID uint) (*Tag, error)
-	MGet(ctx context.Context, ID *[]uint) (*[]Tag, error)
+	MGet(ctx context.Context, IDs *[]uint) (*[]Tag, error)
 	GetAll(ctx context.Context) (*[]Tag, error)
 }

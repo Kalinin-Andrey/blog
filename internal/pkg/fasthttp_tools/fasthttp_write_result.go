@@ -2,12 +2,12 @@ package fasthttp_tools
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/valyala/fasthttp"
-	"github.com/wildberries-tech/wblogger"
 )
 
-func FastHTTPWriteResult(ctx *fasthttp.RequestCtx, status int, data interface{}) {
+func FastHTTPWriteResult(ctx *fasthttp.RequestCtx, status int, data interface{}) error {
 
 	if data != nil {
 		var body []byte
@@ -18,14 +18,14 @@ func FastHTTPWriteResult(ctx *fasthttp.RequestCtx, status int, data interface{})
 			status = fasthttp.StatusInternalServerError
 			data = NewResponse_ErrInternal()
 			body, _ = json.Marshal(data)
-			wblogger.Error(ctx, metricName+"json.Marshal error: ", err)
+			return fmt.Errorf(metricName+"json.Marshal error: %w", err)
 		}
 
 		if _, err := ctx.Write(body); err != nil {
-			wblogger.Error(ctx, metricName+"WriteResp-Err", err)
+			return fmt.Errorf("Write(body) error: %w", err)
 		}
 	}
 	ctx.SetStatusCode(status)
 
-	return
+	return nil
 }

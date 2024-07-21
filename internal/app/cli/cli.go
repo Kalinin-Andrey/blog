@@ -1,24 +1,22 @@
 package cli
 
 import (
+	"blog/internal/pkg/config"
 	"context"
 	"errors"
-	"net/http"
-	"time"
-
 	prometheus_utils "github.com/minipkg/prometheus-utils"
 	routing "github.com/qiangxue/fasthttp-routing"
 	"github.com/spf13/cobra"
 	"github.com/valyala/fasthttp"
-	"github.com/wildberries-tech/wblogger"
+	"go.uber.org/zap"
+	"net/http"
 
-	"github.com/Kalinin-Andrey/blog/internal/pkg/config"
-
-	"github.com/Kalinin-Andrey/blog/internal/app"
+	"blog/internal/app"
 )
 
 const (
-	shutdownTimeout = 3 * time.Second
+	metricsSuccess = "true"
+	metricsFail    = "false"
 )
 
 // App is the application for CLI app
@@ -27,8 +25,8 @@ type App struct {
 	ctx           context.Context
 	config        *config.CliConfig
 	apiConfig     *config.API
+	logger        *zap.Logger
 	rootCmd       *cobra.Command
-	errors        []error
 	serverMetrics *fasthttp.Server
 	serverProbes  *fasthttp.Server
 }
@@ -42,6 +40,7 @@ func New(ctx context.Context, appName string, coreApp *app.App, apicfg *config.A
 		ctx:       ctx,
 		config:    cfg,
 		apiConfig: apicfg,
+		logger:    coreApp.Infra.Logger,
 		rootCmd: &cobra.Command{
 			Use:   "cli",
 			Short: "This is the short description.",
@@ -67,15 +66,7 @@ func New(ctx context.Context, appName string, coreApp *app.App, apicfg *config.A
 }
 
 func (app *App) init() {
-	app.rootCmd.AddCommand(mpOrderCreationCollector,
-		mpOrderChangeCollector,
-		calculator,
-		feedbackCollector,
-		defectCollector,
-		fillerSellerIDOfNmID,
-		defectProcessinger,
-		aggregateCalculator,
-	)
+	app.rootCmd.AddCommand()
 	app.buildHandler()
 }
 
@@ -96,43 +87,28 @@ func (app *App) Run() error {
 		return err
 	}
 	go func() {
-		wblogger.Info(context.Background(), "metrics listen on "+app.apiConfig.Metrics.Addr)
+		app.logger.Info("metrics listen on " + app.apiConfig.Metrics.Addr)
 		if err := app.serverMetrics.ListenAndServe(app.apiConfig.Metrics.Addr); err != nil {
-			wblogger.Error(app.ctx, "serverMetrics.ListenAndServe error", err)
-			wblogger.Flush()
+			app.logger.Error("serverMetrics.ListenAndServe error", zap.Error(err))
 		}
 	}()
 	go func() {
-		wblogger.Info(context.Background(), "probes listen on "+app.apiConfig.Probes.Addr)
+		app.logger.Info("probes listen on " + app.apiConfig.Probes.Addr)
 		if err := app.serverProbes.ListenAndServe(app.apiConfig.Probes.Addr); err != nil {
-			wblogger.Error(app.ctx, "serverProbes.ListenAndServe error", err)
-			wblogger.Flush()
+			app.logger.Error("serverProbes.ListenAndServe error", zap.Error(err))
 		}
 	}()
-	wblogger.Info(context.Background(), "cli app is starting...")
+	app.logger.Info("cli app is starting...")
 	return app.rootCmd.Execute()
 }
 
 func (app *App) Stop() error {
-	var err error
-	var errs []error
-
-	wblogger.Info(context.Background(), "Cli-Shutdown")
-	time.Sleep(time.Second * 10)
-
-	if err = app.serverMetrics.Shutdown(); err != nil {
-		errs = append(errs, err)
-	}
-
-	if err = app.serverProbes.Shutdown(); err != nil {
-		errs = append(errs, err)
-	}
-
-	if err = app.App.Stop(); err != nil {
-		errs = append(errs, err)
-	}
-
-	return errors.Join(errs...)
+	app.logger.Info("Cli-Shutdown")
+	return errors.Join(
+		app.serverMetrics.Shutdown(),
+		app.serverProbes.Shutdown(),
+		app.App.Stop(),
+	)
 }
 
 func LiveHandler(rctx *routing.Context) error {

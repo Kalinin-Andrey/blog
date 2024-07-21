@@ -9,7 +9,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/valyala/fasthttp"
-	"github.com/wildberries-tech/wblogger"
 )
 
 const (
@@ -79,7 +78,6 @@ func parseTxID(ctx *fasthttp.RequestCtx) (string, error) {
 }
 
 func BadRequest(ctx *fasthttp.RequestCtx, err error) {
-	wblogger.Error(ctx, "BadRequest", fmt.Errorf(string(ctx.Request.URI().Path())+"%w", err))
 	ctx.SetStatusCode(fasthttp.StatusBadRequest)
 	resp := errorResp{
 		Error:     err.Error(),
@@ -95,7 +93,6 @@ func BadRequest(ctx *fasthttp.RequestCtx, err error) {
 }
 
 func InternalError(ctx *fasthttp.RequestCtx, err error) {
-	wblogger.Error(ctx, "InternalError", fmt.Errorf(string(ctx.Request.URI().Path())+"%w", err))
 	ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 	resp := errorResp{
 		Error:     err.Error(),
@@ -114,14 +111,15 @@ type errorResp struct {
 	RequestId string
 }
 
-func Success(ctx *fasthttp.RequestCtx, body []byte) {
+func Success(ctx *fasthttp.RequestCtx, body []byte) error {
 	if body == nil {
 		ctx.SetStatusCode(fasthttp.StatusNoContent)
-		return
+		return nil
 	}
 	if _, err := ctx.Write(body); err != nil {
-		wblogger.Error(ctx, "WriteResp-Err", err)
+		return fmt.Errorf("Write(body) error: %w", err)
 	}
+	return nil
 }
 
 func parseUserId(ctx *fasthttp.RequestCtx) (string, error) {

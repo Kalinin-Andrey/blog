@@ -1,6 +1,6 @@
 package fasthttp_tools
 
-import "github.com/Kalinin-Andrey/blog/internal/pkg/apperror"
+import "blog/internal/pkg/apperror"
 
 type Response struct {
 	Data             interface{} `json:"data"`
@@ -47,6 +47,13 @@ func NewResponse_ErrNotFound(errMessage string) *Response {
 	}
 }
 
+func NewResponse_ErrInternal() *Response {
+	return &Response{
+		Error:     true,
+		ErrorText: apperror.NewError("internal error"),
+	}
+}
+
 func NewResponse_Success(data interface{}) *Response {
 	return &Response{
 		ErrorText: apperror.NewError(""),
@@ -66,10 +73,3 @@ func NewResponse_Success(data interface{}) *Response {
 //		},
 //	}
 //}
-
-func NewResponse_ErrInternal() *Response {
-	return &Response{
-		Error:     true,
-		ErrorText: apperror.NewError("internal error"),
-	}
-}

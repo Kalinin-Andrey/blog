@@ -4,19 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go.uber.org/zap"
 	"net/http"
 	"strconv"
 	"time"
 
+	"blog/internal/pkg/config"
+	"blog/internal/pkg/fasthttp_tools"
 	routing "github.com/qiangxue/fasthttp-routing"
 	uuid "github.com/satori/go.uuid"
 	"github.com/valyala/fasthttp"
-	"github.com/wildberries-tech/wblogger"
 
-	"github.com/Kalinin-Andrey/blog/internal/pkg/config"
-	"github.com/Kalinin-Andrey/blog/internal/pkg/fasthttp_tools"
-
-	"github.com/Kalinin-Andrey/blog/internal/app"
+	"blog/internal/app"
 	"github.com/minipkg/prometheus-utils"
 )
 
@@ -33,6 +32,7 @@ type HttpServerMetric interface {
 type RestAPI struct {
 	*app.App
 	config              *config.API
+	logger              *zap.Logger
 	serverRestAPI       *fasthttp.Server
 	serverRestAPIMetric HttpServerMetric
 	serverMetrics       *fasthttp.Server
@@ -43,6 +43,7 @@ func New(app *app.App, appConfig *config.AppConfig, cfg *config.API) *RestAPI {
 	restAPI := &RestAPI{
 		config: cfg,
 		App:    app,
+		logger: app.Infra.Logger,
 		serverRestAPI: &fasthttp.Server{
 			Name:            appConfig.Name,
 			ReadTimeout:     cfg.Rest.ReadTimeout,
@@ -50,7 +51,10 @@ func New(app *app.App, appConfig *config.AppConfig, cfg *config.API) *RestAPI {
 			IdleTimeout:     cfg.Rest.IdleTimeout,
 			CloseOnShutdown: true,
 		},
-		serverRestAPIMetric: prometheus_utils.NewHttpServerMetrics(appConfig.NameSpace, appConfig.Name, appConfig.Service),
+		serverRestAPIMetric: prometheus_utils.NewHttpServerMetrics(appConfig.NameSpace, appConfig.Name, appConfig.Service).SetCuttingPathOpts(&prometheus_utils.CuttingPathOpts{
+			IsNeedToRemoveQueryInPath: true,
+			IsNeedToRemoveIDsInPath:   true,
+		}),
 		serverMetrics: &fasthttp.Server{
 			Name:            appConfig.Name,
 			ReadTimeout:     cfg.Metrics.ReadTimeout,
@@ -66,12 +70,6 @@ func New(app *app.App, appConfig *config.AppConfig, cfg *config.API) *RestAPI {
 			CloseOnShutdown: true,
 		},
 	}
-
-	wblogger.CtxField(AuthClientKey)
-	wblogger.CtxField(RequestIdKey)
-	wblogger.CtxField(fasthttp_tools.SumCtxField)
-	wblogger.CtxField(fasthttp_tools.TxIdCtxField)
-	wblogger.CtxField(fasthttp_tools.UserCtxField)
 
 	restAPI.buildHandler()
 
@@ -89,26 +87,26 @@ func (a *RestAPI) buildHandler() {
 	a.serverMetrics.Handler = rm.HandleRequest
 
 	r := routing.New()
-	r.Use(RecoverInterceptorMiddleware, SetResponseHeaderMiddleware("Content-Type", "application/json; charset=utf-8"), RequestIdInterceptorMiddleware, a.httpServerMetricMiddleware)
+	r.Use(a.RecoverInterceptorMiddleware, a.SetResponseHeaderMiddleware("Content-Type", "application/json; charset=utf-8"), a.RequestIdInterceptorMiddleware, a.httpServerMetricMiddleware)
 	//api := r.Group("/api/v1")
 
-	//ratingController := controller.NewBlogController(r, a.Domain.Blog)
-	//api.Get("/rating/<sellerID>", ratingController.Get)
-	a.serverRestAPI.Handler = r.HandleRequest
+	//blogController := controller.NewBlogController(r, a.Domain.Blog)
+	//api.Get("/rating/<sellerID>", blogController.Get)
 
+	a.serverRestAPI.Handler = r.HandleRequest
 }
 
-func SetResponseHeaderMiddleware(key string, value string) func(rctx *routing.Context) error {
+func (a *RestAPI) SetResponseHeaderMiddleware(key string, value string) func(rctx *routing.Context) error {
 	return func(rctx *routing.Context) error {
 		rctx.Response.Header.Set(key, value)
 		return rctx.Next()
 	}
 }
 
-func RecoverInterceptorMiddleware(rctx *routing.Context) error {
+func (a *RestAPI) RecoverInterceptorMiddleware(rctx *routing.Context) error {
 	defer func() {
 		if r := recover(); r != nil {
-			wblogger.Error(rctx, "PanicInterceptor", fmt.Errorf("%v", r))
+			a.logger.Error("PanicInterceptor", zap.Error(fmt.Errorf("%v", r)))
 			fasthttp_tools.InternalError(rctx.RequestCtx, fmt.Errorf("%v", r))
 		}
 	}()
@@ -116,7 +114,7 @@ func RecoverInterceptorMiddleware(rctx *routing.Context) error {
 	return rctx.Next()
 }
 
-func RequestIdInterceptorMiddleware(rctx *routing.Context) error {
+func (a *RestAPI) RequestIdInterceptorMiddleware(rctx *routing.Context) error {
 	if requestId := rctx.Get(RequestIdKey); requestId != nil {
 		return nil
 	}
@@ -162,45 +160,27 @@ func (a *RestAPI) Run(ctx context.Context) error {
 		return err
 	}
 	go func() {
-		wblogger.Info(context.Background(), "metrics listen on "+a.config.Metrics.Addr)
+		a.logger.Info("metrics listen on " + a.config.Metrics.Addr)
 		if err := a.serverMetrics.ListenAndServe(a.config.Metrics.Addr); err != nil {
-			wblogger.Error(ctx, "serverMetrics.ListenAndServe error", err)
-			wblogger.Flush()
+			a.logger.Error("serverMetrics.ListenAndServe error", zap.Error(err))
 		}
 	}()
 	go func() {
-		wblogger.Info(context.Background(), "probes listen on "+a.config.Probes.Addr)
+		a.logger.Info("probes listen on " + a.config.Probes.Addr)
 		if err := a.serverProbes.ListenAndServe(a.config.Probes.Addr); err != nil {
-			wblogger.Error(ctx, "serverProbes.ListenAndServe error", err)
-			wblogger.Flush()
+			a.logger.Error("serverProbes.ListenAndServe error", zap.Error(err))
 		}
 	}()
-	wblogger.Info(context.Background(), "restapi listen on "+a.config.Rest.Addr)
+	a.logger.Info("restapi listen on " + a.config.Rest.Addr)
 	return a.serverRestAPI.ListenAndServe(a.config.Rest.Addr)
 }
 
 func (a *RestAPI) Stop() error {
-	var err error
-	var errs []error
-
-	wblogger.Info(context.Background(), "Api-Shutdown")
-	time.Sleep(time.Second * 10)
-
-	if err = a.serverRestAPI.Shutdown(); err != nil {
-		errs = append(errs, err)
-	}
-
-	if err = a.serverMetrics.Shutdown(); err != nil {
-		errs = append(errs, err)
-	}
-
-	if err = a.serverProbes.Shutdown(); err != nil {
-		errs = append(errs, err)
-	}
-
-	if err = a.App.Stop(); err != nil {
-		errs = append(errs, err)
-	}
-
-	return errors.Join(errs...)
+	a.logger.Info("Api-Shutdown")
+	return errors.Join(
+		a.serverRestAPI.Shutdown(),
+		a.serverMetrics.Shutdown(),
+		a.serverProbes.Shutdown(),
+		a.App.Stop(),
+	)
 }

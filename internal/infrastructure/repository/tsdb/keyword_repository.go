@@ -1,7 +1,7 @@
 package tsdb
 
 import (
-	"blog/internal/domain/blog"
+	"blog/internal/domain/keyword"
 	"blog/internal/pkg/apperror"
 	"context"
 	"database/sql"
@@ -11,38 +11,38 @@ import (
 	"time"
 )
 
-type BlogRepository struct {
+type KeywordRepository struct {
 	*Repository
 }
 
 const ()
 
-var _ blog.WriteRepository = (*BlogRepository)(nil)
-var _ blog.ReadRepository = (*BlogRepository)(nil)
+var _ keyword.WriteRepository = (*KeywordRepository)(nil)
+var _ keyword.ReadRepository = (*KeywordRepository)(nil)
 
-func NewBlogRepository(repository *Repository) *BlogRepository {
-	return &BlogRepository{
+func NewKeywordRepository(repository *Repository) *KeywordRepository {
+	return &KeywordRepository{
 		Repository: repository,
 	}
 }
 
 const (
-	blog_sql_Get    = "SELECT id, sysname, keyword_ids, tag_ids, name, description FROM blog.blog WHERE sysname = $1;"
-	blog_sql_MGet   = "SELECT id, sysname, keyword_ids, tag_ids, name, description FROM blog.blog WHERE sysname = any($1);"
-	blog_sql_GetAll = "SELECT id, sysname, keyword_ids, tag_ids, name, description FROM blog.blog;"
-	blog_sql_Create = "INSERT INTO blog.blog(sysname, keyword_ids, tag_ids, name, description) VALUES ($1, $2, $3, $4, $5) RETURNING id;"
-	blog_sql_Update = "UPDATE blog.blog SET sysname = $2, keyword_ids = $3, tag_ids = $4, name = $5, description = $3 WHERE id = $1;"
-	blog_sql_Delete = "DELETE FROM blog.blog WHERE id = $1;"
+	keyword_sql_Get    = "SELECT id, sysname, value FROM blog.keyword WHERE id = $1;"
+	keyword_sql_MGet   = "SELECT id, sysname, value FROM blog.keyword WHERE id = any($1);"
+	keyword_sql_GetAll = "SELECT id, sysname, value FROM blog.keyword;"
+	keyword_sql_Create = "INSERT INTO blog.keyword(sysname, value) VALUES ($1, $2) RETURNING id;"
+	keyword_sql_Update = "UPDATE blog.keyword SET sysname = $2, value = $3 WHERE id = $1;"
+	keyword_sql_Delete = "DELETE FROM blog.keyword WHERE id = $1;"
 )
 
-func (r *BlogRepository) Get(ctx context.Context, sysname string) (*blog.Blog, error) {
+func (r *KeywordRepository) Get(ctx context.Context, ID uint) (*keyword.Keyword, error) {
 	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	//defer cancel()
-	const metricName = "BlogRepository.Get"
+	const metricName = "KeywordRepository.Get"
 	start := time.Now().UTC()
 
-	entity := &blog.Blog{}
-	if err := r.db.QueryRow(ctx, blog_sql_Get, sysname).Scan(&entity.ID, &entity.Sysname, &entity.KeywordIDs, &entity.TagIDs, &entity.Name, &entity.Description); err != nil {
+	entity := &keyword.Keyword{}
+	if err := r.db.QueryRow(ctx, keyword_sql_Get, ID).Scan(&entity.ID, &entity.Sysname, &entity.Value); err != nil {
 		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
 			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
@@ -50,23 +50,23 @@ func (r *BlogRepository) Get(ctx context.Context, sysname string) (*blog.Blog, e
 		}
 		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, blog_sql_Get, err)
+		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, keyword_sql_Get, err)
 	}
 	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
 	return entity, nil
 }
 
-func (r *BlogRepository) MGet(ctx context.Context, sysnames *[]string) (*[]blog.Blog, error) {
+func (r *KeywordRepository) MGet(ctx context.Context, IDs *[]uint) (*[]keyword.Keyword, error) {
 	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	//defer cancel()
-	const metricName = "BlogRepository.MGet"
+	const metricName = "KeywordRepository.MGet"
 
-	var item blog.Blog
-	res := make([]blog.Blog, 0, len(*sysnames))
+	var item keyword.Keyword
+	res := make([]keyword.Keyword, 0, len(*IDs))
 
 	start := time.Now().UTC()
-	rows, err := r.db.Query(ctx, blog_sql_MGet, *sysnames)
+	rows, err := r.db.Query(ctx, keyword_sql_MGet, *IDs)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
 			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
@@ -75,15 +75,15 @@ func (r *BlogRepository) MGet(ctx context.Context, sysnames *[]string) (*[]blog.
 		}
 		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, blog_sql_MGet, err)
+		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, keyword_sql_MGet, err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		if err = rows.Scan(&item.ID, &item.Sysname, &item.KeywordIDs, &item.TagIDs, &item.Name, &item.Description); err != nil {
+		if err = rows.Scan(&item.ID, &item.Sysname, &item.Value); err != nil {
 			r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, blog_sql_MGet, err)
+			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, keyword_sql_MGet, err)
 		}
 		res = append(res, item)
 	}
@@ -97,16 +97,16 @@ func (r *BlogRepository) MGet(ctx context.Context, sysnames *[]string) (*[]blog.
 	return &res, nil
 }
 
-func (r *BlogRepository) GetAll(ctx context.Context) (*[]blog.Blog, error) {
+func (r *KeywordRepository) GetAll(ctx context.Context) (*[]keyword.Keyword, error) {
 	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	//defer cancel()
-	const metricName = "BlogRepository.GetAll"
+	const metricName = "KeywordRepository.GetAll"
 
-	var item blog.Blog
-	res := make([]blog.Blog, 0, defaultCapacityForResult)
+	var item keyword.Keyword
+	res := make([]keyword.Keyword, 0, defaultCapacityForResult)
 
 	start := time.Now().UTC()
-	rows, err := r.db.Query(ctx, blog_sql_GetAll)
+	rows, err := r.db.Query(ctx, keyword_sql_GetAll)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
 			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
@@ -115,15 +115,15 @@ func (r *BlogRepository) GetAll(ctx context.Context) (*[]blog.Blog, error) {
 		}
 		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, blog_sql_GetAll, err)
+		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, keyword_sql_GetAll, err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		if err = rows.Scan(&item.ID, &item.Sysname, &item.KeywordIDs, &item.TagIDs, &item.Name, &item.Description); err != nil {
+		if err = rows.Scan(&item.ID, &item.Sysname, &item.Value); err != nil {
 			r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, blog_sql_GetAll, err)
+			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, keyword_sql_GetAll, err)
 		}
 		res = append(res, item)
 	}
@@ -137,13 +137,13 @@ func (r *BlogRepository) GetAll(ctx context.Context) (*[]blog.Blog, error) {
 	return &res, nil
 }
 
-func (r *BlogRepository) Create(ctx context.Context, entity *blog.Blog) (ID uint, err error) {
+func (r *KeywordRepository) Create(ctx context.Context, entity *keyword.Keyword) (ID uint, err error) {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
-	const metricName = "BlogRepository.Create"
+	const metricName = "KeywordRepository.Create"
 	start := time.Now().UTC()
 
-	if err := r.db.QueryRow(ctx, blog_sql_Create, entity.Sysname, entity.KeywordIDs, entity.TagIDs, entity.Name, entity.Description).Scan(&ID); err != nil {
+	if err := r.db.QueryRow(ctx, keyword_sql_Create, entity.Sysname, entity.Value).Scan(&ID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
 			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
@@ -151,20 +151,20 @@ func (r *BlogRepository) Create(ctx context.Context, entity *blog.Blog) (ID uint
 		}
 		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return 0, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, blog_sql_Create, err)
+		return 0, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, keyword_sql_Create, err)
 	}
 	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
 	return ID, nil
 }
 
-func (r *BlogRepository) Update(ctx context.Context, entity *blog.Blog) error {
+func (r *KeywordRepository) Update(ctx context.Context, entity *keyword.Keyword) error {
 	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	//defer cancel()
-	const metricName = "BlogRepository.Update"
+	const metricName = "KeywordRepository.Update"
 	start := time.Now().UTC()
 
-	_, err := r.db.Exec(ctx, blog_sql_Update, entity.ID, entity.Sysname, entity.KeywordIDs, entity.TagIDs, entity.Name, entity.Description)
+	_, err := r.db.Exec(ctx, keyword_sql_Update, entity.ID, entity.Sysname, entity.Value)
 	if err != nil {
 		if strings.Contains(err.Error(), errMsg_duplicateKey) {
 			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
@@ -173,20 +173,20 @@ func (r *BlogRepository) Update(ctx context.Context, entity *blog.Blog) error {
 		}
 		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, blog_sql_Update, err)
+		return fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, keyword_sql_Update, err)
 	}
 	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
 	return nil
 }
 
-func (r *BlogRepository) Delete(ctx context.Context, ID uint) error {
+func (r *KeywordRepository) Delete(ctx context.Context, ID uint) error {
 	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	//defer cancel()
-	const metricName = "BlogRepository.Delete"
+	const metricName = "KeywordRepository.Delete"
 	start := time.Now().UTC()
 
-	_, err := r.db.Exec(ctx, blog_sql_Delete, ID)
+	_, err := r.db.Exec(ctx, keyword_sql_Delete, ID)
 	if err != nil {
 		if strings.Contains(err.Error(), errMsg_duplicateKey) {
 			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
@@ -195,7 +195,7 @@ func (r *BlogRepository) Delete(ctx context.Context, ID uint) error {
 		}
 		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, blog_sql_Delete, err)
+		return fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, keyword_sql_Delete, err)
 	}
 	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)

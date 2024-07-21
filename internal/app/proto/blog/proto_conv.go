@@ -1,7 +1,7 @@
 package blog
 
 import (
-	"github.com/Kalinin-Andrey/blog/internal/domain/blog"
+	"blog/internal/domain/blog"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

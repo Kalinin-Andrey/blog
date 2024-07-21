@@ -1,8 +1,9 @@
-package migrations
+package tsdb
 
 import (
 	"embed"
-	"github.com/Kalinin-Andrey/blog/internal/infrastructure/repository/tsdb"
+
+	"blog/internal/infrastructure/repository/tsdb"
 )
 
 //go:embed *.sql

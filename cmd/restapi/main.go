@@ -7,45 +7,39 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/pkg/errors"
-
-	"github.com/wildberries-tech/wblogger"
 	_ "go.uber.org/automaxprocs"
 
-	"github.com/Kalinin-Andrey/blog/internal/app"
-	"github.com/Kalinin-Andrey/blog/internal/app/restapi"
-	"github.com/Kalinin-Andrey/blog/internal/pkg/config"
+	"blog/internal/app"
+	"blog/internal/app/restapi"
+	"blog/internal/pkg/config"
 )
 
 var Version = "0.0.0"
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer func() {
-		cancel()
-		wblogger.Flush()
-	}()
 
 	conf, err := config.Get()
 	if err != nil {
-		log.Fatal(errors.Wrap(err, "load conf error"))
+		log.Fatalf("Load conf error: %w", err)
 	}
-	coreApp := app.New(ctx, conf)
-	restAPI := restapi.New(coreApp, conf.App, conf.API)
+	restAPI := restapi.New(app.New(ctx, conf), conf.App, conf.API)
 
-	done := make(chan os.Signal, 1)
 	go func() {
 		if err = restAPI.Run(ctx); err != nil {
-			log.Fatal(errors.Wrap(err, "start of rest api error"))
+			log.Fatalf("restAPI.Run(ctx) error: %w", err)
+			os.Exit(1)
 		}
 	}()
 
 	defer func() {
 		if err = restAPI.Stop(); err != nil {
-			wblogger.Error(ctx, "API Shutdown error", err)
+			log.Printf("restAPI.Stop() error: %w", err)
 		}
 	}()
 
-	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
-	<-done
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	<-stop
+	cancel()
 }

@@ -11,10 +11,11 @@ func (e Error) Error() string {
 }
 
 const (
-	ErrNotFound   Error = "Not found."
-	ErrBadRequest Error = "Bad request."
-	ErrInternal   Error = "Internal server error."
-	ErrData       Error = "Data error."
+	ErrNotFound      Error = "Not found"
+	ErrBadRequest    Error = "Bad request"
+	ErrAlreadyExists Error = "Already exists"
+	ErrInternal      Error = "Internal server error"
+	ErrData          Error = "Data error"
 )
 
 func NewError(msg string) *Error {

@@ -1,7 +1,7 @@
 package tsdb_cluster
 
 import (
-	"github.com/Kalinin-Andrey/blog/internal/infrastructure/repository/tsdb"
+	"blog/internal/infrastructure/repository/tsdb"
 )
 
 type ReplicaSet struct {

@@ -169,7 +169,7 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("github.com/Kalinin-Andrey/blog/rating.proto", fileDescriptor_1b10cb65c5394aa1)
+	proto.RegisterFile("blog/rating.proto", fileDescriptor_1b10cb65c5394aa1)
 }
 
 var fileDescriptor_1b10cb65c5394aa1 = []byte{

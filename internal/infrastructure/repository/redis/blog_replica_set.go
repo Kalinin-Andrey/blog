@@ -1,7 +1,7 @@
 package redis
 
 import (
-	"github.com/Kalinin-Andrey/blog/internal/domain/blog"
+	"blog/internal/domain/blog"
 )
 
 type BlogReplicaSet struct {

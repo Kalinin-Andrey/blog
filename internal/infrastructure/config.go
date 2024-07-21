@@ -5,8 +5,8 @@ import (
 
 	"github.com/minipkg/db/redis"
 
-	"github.com/Kalinin-Andrey/blog/internal/infrastructure/repository/pg"
-	"github.com/Kalinin-Andrey/blog/internal/infrastructure/repository/tsdb"
+	"blog/internal/infrastructure/repository/pg"
+	"blog/internal/infrastructure/repository/tsdb"
 )
 
 type Config struct {
@@ -130,9 +130,6 @@ type redisReplicaSet struct {
 func (c *RedisConfig) getConfig() *[2]redis.Config {
 	var res [2]redis.Config
 
-	//if v.Password == "" {
-	//	log.Fatalf("Empty Infra.Redis.Shards.%d.Password", k)
-	//}
 	res[0] = redis.Config{
 		Addrs:    []string{c.ReplicaSet.MasterAddrs},
 		Login:    c.Conn.Login,

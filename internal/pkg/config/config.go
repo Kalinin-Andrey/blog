@@ -1,17 +1,24 @@
 package config
 
 import (
+	"blog/internal/integration"
 	"flag"
+	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 
-	"github.com/Kalinin-Andrey/blog/internal/infrastructure"
+	"blog/internal/infrastructure"
 )
 
 const (
-	defaultPathToConfig = "/etc/config/app.yml"
+	defaultPathToConfig   = "/etc/config/app.yml"
+	defaultPathToMSConfig = "/etc/config/ms.yml"
+
+	Environment_Local = "local"
+	Environment_Dev   = "dev"
+	Environment_Stage = "stage"
+	Environment_Prd   = "prd"
 )
 
 type AppConfig struct {
@@ -31,10 +38,11 @@ func (c *AppConfig) InfraAppConfig() *infrastructure.AppConfig {
 }
 
 type Configuration struct {
-	App   *AppConfig
-	API   *API
-	Cli   *CliConfig
-	Infra *infrastructure.Config
+	App         *AppConfig
+	API         *API
+	Cli         *CliConfig
+	Integration *integration.Config
+	Infra       *infrastructure.Config
 }
 
 type API struct {
@@ -59,8 +67,10 @@ func Get() (*Configuration, error) {
 	var config Configuration = Configuration{}
 	// pathToConfig is a path to the app config
 	var pathToConfig string
+	var pathToMSConfig string
 
 	viper.AutomaticEnv() // read in environment variables that match
+	//viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	//viper.BindEnv("pathToConfig")
 	defPathToConfig := defaultPathToConfig
@@ -75,6 +85,16 @@ func Get() (*Configuration, error) {
 		return &config, err
 	}
 
+	defPathToMSConfig := defaultPathToMSConfig
+	if viper.Get("pathToMSConfig") != nil {
+		defPathToMSConfig = viper.Get("pathToMSConfig").(string)
+	}
+	flag.StringVar(&pathToMSConfig, "msconfig", defPathToMSConfig, "path to YAML/JSON config file for micro-service")
+	flag.Parse()
+
+	if err := config.readMSConfig(pathToMSConfig); err != nil {
+		return &config, err
+	}
 	return &config, nil
 }
 
@@ -83,15 +103,15 @@ func (c *Configuration) readConfig(pathToConfig string) error {
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			return errors.Errorf("Config file not found in %q", pathToConfig)
+			return fmt.Errorf("Config file not found in %q", pathToConfig)
 		} else {
-			return errors.Errorf("Config file was found in %q, but was produced error: %v", pathToConfig, err)
+			return fmt.Errorf("Config file was found in %q, but was produced error: %w", pathToConfig, err)
 		}
 	}
 
 	err := viper.Unmarshal(c)
 	if err != nil {
-		return errors.Errorf("Config unmarshal error: %v", err)
+		return fmt.Errorf("Config unmarshal error: %w", err)
 	}
 	return nil
 }

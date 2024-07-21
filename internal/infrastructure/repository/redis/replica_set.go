@@ -1,6 +1,8 @@
 package redis
 
-import "errors"
+import (
+	"errors"
+)
 
 type ReplicaSet struct {
 	master *Repository

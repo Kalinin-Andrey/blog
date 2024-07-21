@@ -6,14 +6,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
-
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/wildberries-tech/wblogger"
 
-	"github.com/Kalinin-Andrey/blog/internal/pkg/apperror"
+	"blog/internal/pkg/apperror"
+
+	"blog/internal/domain"
 )
 
 type DbMetrics interface {
@@ -23,6 +21,22 @@ type DbMetrics interface {
 type SqlMetrics interface {
 	Inc(query, success string)
 	WriteTiming(start time.Time, query, success string)
+}
+
+type GaugeMetrics interface {
+	Add(valueName string, value float64)
+	Set(valueName string, value float64)
+}
+
+type CounterMetrics interface {
+	Inc(labelValues ...string)
+	Add(val int64, labelValues ...string)
+}
+
+type RepositoryMetrics struct {
+	SqlMetrics     SqlMetrics
+	GaugeMetrics   GaugeMetrics
+	CounterMetrics CounterMetrics
 }
 
 type Tx interface {
@@ -40,7 +54,7 @@ var _ Tx = (pgx.Tx)(nil)
 type Repository struct {
 	db      *pgxpool.Pool
 	sqlDB   *sql.DB
-	metrics SqlMetrics
+	metrics *RepositoryMetrics
 	timeout time.Duration
 }
 
@@ -59,31 +73,32 @@ type Config struct {
 }
 
 const (
-	defaultMapLen      = 1000
-	defaultSelectLimit = 10
-
 	metricsSuccess = "true"
 	metricsFail    = "false"
+
+	defaultCapacityForResult = 100
+	errMsg_duplicateKey      = "duplicate key"
 
 	sql_Where = " WHERE "
 	sql_And   = " AND "
 	sql_Or    = " OR "
 	sql_Asc   = " ASC"
 	sql_Desc  = " DESC"
+
+	sql_OnConflictDoNothing = " ON CONFLICT DO NOTHING;"
 )
 
-func NewRepository(cfg Config, dbMetrics DbMetrics, sqlMetrics SqlMetrics) (*Repository, error) {
+func NewRepository(cfg Config, dbMetrics DbMetrics, metrics *RepositoryMetrics) (*Repository, error) {
 	ctx := context.Background()
 	url := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DbName)
 	config, err := pgxpool.ParseConfig(url)
 	if err != nil {
-		wblogger.Error(ctx, "NewPgRepo-ParseConfig", err)
-		return nil, errors.Wrap(apperror.ErrInternal, err.Error())
+		return nil, fmt.Errorf("[%w] pgxpool.ParseConfig(url) error: %w", apperror.ErrInternal, err)
 	}
 
 	sqlDB, err := sql.Open("pgx", url)
 	if err != nil {
-		return nil, errors.Wrap(apperror.ErrInternal, err.Error())
+		return nil, fmt.Errorf("[%w] sql.Open() error: %w", apperror.ErrInternal, err)
 	}
 
 	//config.ConnConfig.PreferSimpleProtocol = true
@@ -95,13 +110,11 @@ func NewRepository(cfg Config, dbMetrics DbMetrics, sqlMetrics SqlMetrics) (*Rep
 
 	db, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
-		wblogger.Error(ctx, "NewPgRepo-ConnectConfig", err)
-		return nil, errors.Wrap(apperror.ErrInternal, err.Error())
+		return nil, fmt.Errorf("[%w] pgxpool.NewWithConfig() error: %w", apperror.ErrInternal, err)
 	}
 
 	if err = db.Ping(ctx); err != nil {
-		wblogger.Error(ctx, "NewPgRepo-Ping", err)
-		return nil, errors.Wrap(apperror.ErrInternal, err.Error())
+		return nil, fmt.Errorf("[%w] db.Ping() error: %w", apperror.ErrInternal, err)
 	}
 
 	timeout := cfg.Timeout
@@ -109,7 +122,7 @@ func NewRepository(cfg Config, dbMetrics DbMetrics, sqlMetrics SqlMetrics) (*Rep
 		timeout = 30 * time.Second
 	}
 
-	go func(m DbMetrics, updatePeriod time.Duration, ctx context.Context) {
+	go func(ctx context.Context, m DbMetrics, updatePeriod time.Duration) {
 		ticker := time.NewTicker(updatePeriod)
 		defer ticker.Stop()
 
@@ -122,12 +135,12 @@ func NewRepository(cfg Config, dbMetrics DbMetrics, sqlMetrics SqlMetrics) (*Rep
 			// Безопасно для закрытой БД
 			m.ReadStatsFromDB(sqlDB)
 		}
-	}(dbMetrics, 5*time.Second, ctx)
+	}(ctx, dbMetrics, 5*time.Second)
 
 	return &Repository{
 		db:      db,
 		sqlDB:   sqlDB,
-		metrics: sqlMetrics,
+		metrics: metrics,
 		timeout: timeout,
 	}, nil
 }
@@ -142,8 +155,8 @@ func (r *Repository) SqlDB() *sql.DB {
 }
 
 // Begin используется для создания транзакции и её дальнейшей передачи в методы стора
-func (r *Repository) Begin(ctx context.Context) (Tx, error) {
-	const metricName = "Begin"
+func (r *Repository) Begin(ctx context.Context) (domain.Tx, error) {
+	const metricName = "Repository.Begin"
 
 	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	//defer cancel()
@@ -151,18 +164,17 @@ func (r *Repository) Begin(ctx context.Context) (Tx, error) {
 
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
-		r.metrics.Inc(metricName, metricsFail)
-		r.metrics.WriteTiming(start, metricName, metricsFail)
-		wblogger.Error(ctx, "Begin-BeginTx-err", err)
-		return nil, errors.Wrap(apperror.ErrInternal, "Begin transaction error: "+err.Error())
+		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
+		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
+		return nil, fmt.Errorf("[%w] %s begin transaction error: %w", apperror.ErrInternal, metricName, err)
 	}
-	r.metrics.Inc(metricName, metricsSuccess)
-	r.metrics.WriteTiming(start, metricName, metricsSuccess)
+	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
+	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
 	return tx, nil
 }
 
 func (r *Repository) BeginWithOptions(ctx context.Context, opts *pgx.TxOptions) (Tx, error) {
-	const metricName = "BeginWithOptions"
+	const metricName = "Repository.BeginWithOptions"
 
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
@@ -170,32 +182,29 @@ func (r *Repository) BeginWithOptions(ctx context.Context, opts *pgx.TxOptions) 
 
 	tx, err := r.db.BeginTx(ctx, *opts)
 	if err != nil {
-		r.metrics.Inc(metricName, metricsFail)
-		r.metrics.WriteTiming(start, metricName, metricsFail)
-		wblogger.Error(ctx, "Begin-BeginTx-err", err)
-		return nil, errors.Wrap(apperror.ErrInternal, "Begin transaction error: "+err.Error())
+		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
+		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
+		return nil, fmt.Errorf("[%w] %s begin transaction error: %w", apperror.ErrInternal, metricName, err)
 	}
-	r.metrics.Inc(metricName, metricsSuccess)
-	r.metrics.WriteTiming(start, metricName, metricsSuccess)
+	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
+	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
 	return tx, nil
 }
 
 func (r *Repository) Exec(ctx context.Context, sql string, arguments ...interface{}) error {
-	const metricName = "Exec"
+	const metricName = "Repository.Exec"
 	_, err := r.db.Exec(ctx, sql, arguments...)
 	if err != nil {
-		wblogger.Error(ctx, metricName+" error", err)
-		return errors.Wrap(apperror.ErrInternal, metricName+" error: "+err.Error())
+		return fmt.Errorf("[%w] %s SQL request exec error: %w", apperror.ErrInternal, metricName, err)
 	}
 	return nil
 }
 
 func (r *Repository) ExecTx(ctx context.Context, tx Tx, sql string, arguments ...interface{}) error {
-	const metricName = "ExecTx"
+	const metricName = "Repository.ExecTx"
 	_, err := tx.Exec(ctx, sql, arguments...)
 	if err != nil {
-		wblogger.Error(ctx, metricName+" error", err)
-		return errors.Wrap(apperror.ErrInternal, metricName+" error: "+err.Error())
+		return fmt.Errorf("[%w] %s SQL request exec tx error: %w", apperror.ErrInternal, metricName, err)
 	}
 	return nil
 }

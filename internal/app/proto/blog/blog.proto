@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package rating;
 //option go_package = ".;order_state";
-option go_package = "github.com/Kalinin-Andrey/blog/internal/app/proto/rating";
+option go_package = "blog/internal/app/proto/rating";
 
 import "google/protobuf/timestamp.proto";
 

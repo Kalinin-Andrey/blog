@@ -1,7 +1,7 @@
 package pg_cluster
 
 import (
-	"github.com/Kalinin-Andrey/blog/internal/infrastructure/repository/pg"
+	"blog/internal/infrastructure/repository/pg"
 )
 
 type ReplicaSet struct {

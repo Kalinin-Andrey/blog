@@ -17,5 +17,6 @@ type WriteRepository interface {
 
 type ReadRepository interface {
 	Get(ctx context.Context, sysname string) (*Blog, error)
+	MGet(ctx context.Context, sysnames *[]string) (*[]Blog, error)
 	GetAll(ctx context.Context) (*[]Blog, error)
 }

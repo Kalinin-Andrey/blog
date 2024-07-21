@@ -2,15 +2,14 @@ package redis
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
+	blog_proto "blog/internal/app/proto/blog"
+	"blog/internal/domain/blog"
+	"blog/internal/pkg/apperror"
 	"github.com/minipkg/db/redis"
-	"github.com/pkg/errors"
-
-	blog_proto "github.com/Kalinin-Andrey/blog/internal/app/proto/blog"
-	"github.com/Kalinin-Andrey/blog/internal/domain/blog"
-	"github.com/Kalinin-Andrey/blog/internal/pkg/apperror"
 )
 
 const (
@@ -22,8 +21,8 @@ type BlogRepository struct {
 	db redis.IDB
 }
 
-var _ blog.WriteFastRepository = (*BlogRepository)(nil)
-var _ blog.ReadFastRepository = (*BlogRepository)(nil)
+//var _ blog.WriteFastRepository = (*BlogRepository)(nil)
+//var _ blog.ReadFastRepository = (*BlogRepository)(nil)
 
 func NewBlogRepository(repository *Repository) *BlogRepository {
 	return &BlogRepository{
@@ -36,20 +35,20 @@ func (r *BlogRepository) ratingKey(sellerID uint) string {
 }
 
 // Set создаём по SellerOldId в редисе запись с рейтингом
-func (r *BlogRepository) Set(ctx context.Context, rating *blog.Blog) error {
+func (r *BlogRepository) Set(ctx context.Context, entity *blog.Blog) error {
 	const metricName = "BlogRepository.Set"
 
-	ratingB, err := blog_proto.Rating2RatingProto(rating).MarshalBinary()
+	ratingB, err := blog_proto.Rating2RatingProto(entity).MarshalBinary()
 	if err != nil {
-		return errors.Wrapf(apperror.ErrInternal, metricName+" MarshalBinary() error: %s", err)
+		return fmt.Errorf("[%w] "+metricName+" MarshalBinary() error: %w", apperror.ErrInternal, err)
 	}
 
 	start := time.Now().UTC()
-	err = r.DB().Set(ctx, r.ratingKey(rating.SellerOldId), string(ratingB), 0).Err()
+	err = r.DB().Set(ctx, r.ratingKey(entity.ID), string(ratingB), 0).Err()
 	if err != nil {
 		r.metrics.Inc(metricName, metricsFail)
 		r.metrics.WriteTiming(start, metricName, metricsFail)
-		return errors.Wrapf(apperror.ErrInternal, metricName+" r.DB().Set() error: %s", err)
+		return fmt.Errorf("[%w] "+metricName+" r.DB().Set() error: %w", apperror.ErrInternal, err)
 	}
 	r.metrics.Inc(metricName, metricsSuccess)
 	r.metrics.WriteTiming(start, metricName, metricsSuccess)
@@ -58,15 +57,15 @@ func (r *BlogRepository) Set(ctx context.Context, rating *blog.Blog) error {
 
 func (r *BlogRepository) MSet(ctx context.Context, ratingList *[]blog.Blog) error {
 	const metricName = "BlogRepository.MSet"
-	var ratingItem blog.Blog
+	var item blog.Blog
 	values := make([]interface{}, 0, len(*ratingList)*2)
 
-	for _, ratingItem = range *ratingList {
-		ratingB, err := blog_proto.Rating2RatingProto(&ratingItem).MarshalBinary()
+	for _, item = range *ratingList {
+		ratingB, err := blog_proto.Rating2RatingProto(&item).MarshalBinary()
 		if err != nil {
-			return errors.Wrapf(apperror.ErrInternal, metricName+" MarshalBinary() error: %s", err)
+			return fmt.Errorf("[%w] "+metricName+" MarshalBinary() error: %w", apperror.ErrInternal, err)
 		}
-		values = append(values, r.ratingKey(ratingItem.SellerOldId), string(ratingB))
+		values = append(values, r.ratingKey(item.ID), string(ratingB))
 	}
 
 	start := time.Now().UTC()
@@ -74,7 +73,7 @@ func (r *BlogRepository) MSet(ctx context.Context, ratingList *[]blog.Blog) erro
 	if err != nil {
 		r.metrics.Inc(metricName, metricsFail)
 		r.metrics.WriteTiming(start, metricName, metricsFail)
-		return errors.Wrapf(apperror.ErrInternal, metricName+" r.DB().MSet() error: %s", err)
+		return fmt.Errorf("[%w] "+metricName+" r.DB().MSet() error: %w", apperror.ErrInternal, err)
 	}
 	r.metrics.Inc(metricName, metricsSuccess)
 	r.metrics.WriteTiming(start, metricName, metricsSuccess)
@@ -94,7 +93,7 @@ func (r *BlogRepository) Get(ctx context.Context, sellerID uint) (*blog.Blog, er
 		}
 		r.metrics.Inc(metricName, metricsFail)
 		r.metrics.WriteTiming(start, metricName, metricsFail)
-		return nil, errors.Wrapf(apperror.ErrInternal, metricName+" r.DB().Get() error: %s", err.Error())
+		return nil, fmt.Errorf("[%w] "+metricName+" r.DB().Get() error: %w", apperror.ErrInternal, err)
 	}
 	r.metrics.Inc(metricName, metricsSuccess)
 	r.metrics.WriteTiming(start, metricName, metricsSuccess)
@@ -102,7 +101,7 @@ func (r *BlogRepository) Get(ctx context.Context, sellerID uint) (*blog.Blog, er
 	ratingProto := &blog_proto.Blog{}
 	err = ratingProto.UnmarshalBinary(ratingProtoB)
 	if err != nil {
-		return nil, errors.Wrapf(apperror.ErrInternal, metricName+" ratingProto.UnmarshalBinary() error: %s", err.Error())
+		return nil, fmt.Errorf("[%w] "+metricName+" ratingProto.UnmarshalBinary() error: %w", apperror.ErrInternal, err)
 	}
 
 	return blog_proto.RatingProto2Rating(ratingProto), nil
@@ -128,7 +127,7 @@ func (r *BlogRepository) MGet(ctx context.Context, sellerIDs *[]uint) (*[]blog.B
 		}
 		r.metrics.Inc(metricName, metricsFail)
 		r.metrics.WriteTiming(start, metricName, metricsFail)
-		return nil, errors.Wrapf(apperror.ErrInternal, metricName+" r.DB().Get() error: %s", err.Error())
+		return nil, fmt.Errorf("[%w] "+metricName+" r.DB().Get() error: %w", apperror.ErrInternal, err)
 	}
 	r.metrics.Inc(metricName, metricsSuccess)
 	r.metrics.WriteTiming(start, metricName, metricsSuccess)
@@ -137,12 +136,12 @@ func (r *BlogRepository) MGet(ctx context.Context, sellerIDs *[]uint) (*[]blog.B
 	for _, resItem := range res {
 		ratingProtoS, ok := resItem.(string)
 		if !ok {
-			return nil, errors.Wrapf(apperror.ErrInternal, metricName+" cast type resItem.(string) error")
+			return nil, fmt.Errorf("[%w] "+metricName+" cast type resItem.(string) error", apperror.ErrInternal)
 		}
 		ratingProto := &blog_proto.Blog{}
 		err = ratingProto.UnmarshalBinary([]byte(ratingProtoS))
 		if err != nil {
-			return nil, errors.Wrapf(apperror.ErrInternal, metricName+" ratingProto.UnmarshalBinary() error: %s", err.Error())
+			return nil, fmt.Errorf("[%w] "+metricName+" ratingProto.UnmarshalBinary() error: %w", apperror.ErrInternal, err)
 		}
 
 		r := blog_proto.RatingProto2Rating(ratingProto)

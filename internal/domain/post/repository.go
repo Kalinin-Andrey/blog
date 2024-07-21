@@ -19,7 +19,7 @@ type WriteRepository interface {
 type ReadRepository interface {
 	Get(ctx context.Context, ID uint) (*Post, error)
 	GetBySysname(ctx context.Context, sysname string) (*Post, error)
-	MGet(ctx context.Context, IDs []uint) (*PostPreview, error)
+	MGet(ctx context.Context, IDs *[]uint) (*[]PostPreview, error)
 	Filter(ctx context.Context, condition *selection_condition.SelectionCondition) (*[]PostPreview, error)
 	TextSearch(ctx context.Context, searchString string, createdAtSortOrder *string) (*[]PostPreview, error)
 }
