@@ -16,7 +16,7 @@ require (
 	github.com/spf13/viper v1.19.0
 	github.com/valyala/fasthttp v1.55.0
 	go.uber.org/automaxprocs v1.5.3
-	go.uber.org/zap v1.21.0
+	go.uber.org/zap v1.27.0
 )
 
 require (
